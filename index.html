@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poop Patrol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chewy&family=Nunito:wght@400;700;800&display=swap">
+<style>
+/* Layout: menu screen (pig picker cards) swaps with a game screen (HUD strip, maze cabinet, touch d-pad). Single cozy-cage look by choice: pink fleece, wood hideouts. */
+:root {
+  --fleece: #f7dfe2;
+  --fleece-deep: #efc9cf;
+  --wood: #dcb98a;
+  --wood-dark: #a77c4c;
+  --ink: #3b2a1a;
+  --muted: #8a6a52;
+  --hay: #9cc65a;
+  --hay-deep: #5f8f2e;
+  --alert: #d9455a;
+  --card: #fff8f4;
+  --font-display: "Chewy", "Comic Sans MS", system-ui, sans-serif;
+  --font-body: "Nunito", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background-color: var(--fleece);
+  background-image: radial-gradient(var(--fleece-deep) 18%, transparent 19%), radial-gradient(var(--fleece-deep) 18%, transparent 19%);
+  background-size: 34px 34px; background-position: 0 0, 17px 17px;
+  color: var(--ink);
+  font-family: var(--font-body);
+  padding-block: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 13vw, 64px); line-height: .95; margin: 6px 0 0; color: var(--wood-dark); text-shadow: 3px 3px 0 var(--ink); text-align: center; text-wrap: balance; }
+.lede { text-align: center; margin: 0 auto; max-width: 36ch; line-height: 1.5; }
+.panel { background: var(--card); border: 3px solid var(--ink); border-radius: 18px; box-shadow: 0 5px 0 var(--ink); padding: 14px; }
+.panel h2 { font-family: var(--font-display); font-weight: 400; font-size: 24px; margin: 0 0 10px; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.card { border: 3px solid var(--fleece-deep); border-radius: 14px; background: #fff; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; min-width: 0; }
+.card:hover { border-color: var(--wood); }
+.card:focus-visible { outline: 3px solid var(--hay-deep); outline-offset: 2px; }
+.card[aria-checked="true"] { border-color: var(--ink); background: #fff3e2; box-shadow: 0 3px 0 var(--ink); }
+.card canvas { width: 100%; max-width: 150px; aspect-ratio: 15 / 10; height: auto; }
+.card input { width: 100%; box-sizing: border-box; font-family: var(--font-display); font-size: 20px; text-align: center; color: var(--ink); background: transparent; border: 0; border-bottom: 2px dashed var(--fleece-deep); padding: 2px 4px; }
+.card input:focus { outline: none; border-bottom-color: var(--ink); }
+.card .desc { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.3; }
+.small { font-size: 12px; color: var(--muted); text-align: center; margin: 8px 0 0; }
+.rules { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 14px; }
+.rules canvas { width: 30px; height: 30px; }
+.btn { font-family: var(--font-display); font-size: 24px; color: #fff; background: var(--hay-deep); border: 3px solid var(--ink); border-radius: 999px; padding: 10px 34px; cursor: pointer; box-shadow: 0 4px 0 var(--ink); }
+.btn.alt { background: var(--wood-dark); }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn:focus-visible, .ghostbtn:focus-visible, .pad button:focus-visible { outline: 3px solid var(--alert); outline-offset: 3px; }
+.center { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+
+.hud { display: flex; justify-content: space-between; align-items: end; gap: 10px; }
+.hud .label { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.hud .val { font-family: var(--font-display); font-size: 26px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.hud .who { font-family: var(--font-display); font-size: 20px; text-align: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lives { color: var(--alert); letter-spacing: .06em; }
+.stage { position: relative; width: 100%; max-width: min(520px, calc((100vh - 250px) * 0.905)); min-width: 260px; margin: 0 auto; aspect-ratio: 342 / 378; border: 3px solid var(--ink); border-radius: 16px; box-shadow: 0 5px 0 var(--ink); overflow: hidden; touch-action: none; background: var(--fleece); }
+.stage canvas { display: block; width: 100%; height: 100%; }
+.overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 20px; text-align: center; background: rgba(255, 248, 244, .92); }
+.overlay h2 { font-family: var(--font-display); font-weight: 400; font-size: 44px; margin: 0; color: var(--wood-dark); text-shadow: 2px 2px 0 var(--ink); }
+.overlay p { margin: 0; max-width: 28ch; line-height: 1.5; }
+.ghostbtn { font-family: var(--font-body); font-weight: 800; font-size: 13px; background: transparent; border: 2px solid var(--ink); border-radius: 999px; padding: 4px 12px; color: var(--ink); cursor: pointer; }
+.pad { display: none; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(2, 50px); gap: 6px; justify-content: center; }
+.pad button { font-size: 22px; border: 3px solid var(--ink); border-radius: 12px; background: var(--card); color: var(--ink); box-shadow: 0 3px 0 var(--ink); touch-action: none; }
+.pad button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--ink); }
+.pad .up { grid-column: 2; grid-row: 1; }
+.pad .left { grid-column: 1; grid-row: 2; }
+.pad .down { grid-column: 2; grid-row: 2; }
+.pad .right { grid-column: 3; grid-row: 2; }
+@media (pointer: coarse) { .pad { display: grid; } .keyhint { display: none; } }
+@media (max-width: 380px) { .card input { font-size: 17px; } }
+</style>
+</head>
+<body>
+
+<div class="wrap" id="menu">
+  <h1>Poop Patrol</h1>
+  <p class="lede">The cage is a mess and the robot vacuums are coming. Pick your piggy and gobble up every last pellet before they catch you.</p>
+  <div class="panel">
+    <h2>Choose your pig</h2>
+    <div class="cards" id="cards" role="radiogroup" aria-label="Choose your pig"></div>
+    <p class="small">Tap a name to rename your pig.</p>
+  </div>
+  <div class="panel">
+    <h2>How to play</h2>
+    <div class="rules">
+      <canvas id="r1" width="60" height="60"></canvas><span><b>Poop pellets</b> are 10 points. Clear them all to finish the cage.</span>
+      <canvas id="r2" width="60" height="60"></canvas><span><b>Hay bundles</b> give your pig the zoomies. Vacuums get scared and you can bonk them for big points.</span>
+      <canvas id="r3" width="60" height="60"></canvas><span><b>Robot vacuums</b> chase you. Touching one costs a heart.</span>
+    </div>
+    <p class="small">Arrow keys or WASD to move · swipe or use the pad on phones · P to pause</p>
+  </div>
+  <div class="center"><button class="btn" id="playBtn">Play</button></div>
+</div>
+
+<div class="wrap" id="game" hidden>
+  <div class="hud">
+    <div><div class="label">Score</div><div class="val" id="score">0</div></div>
+    <div style="min-width:0; flex:1"><div class="label" style="text-align:center">Cage <span id="level">1</span></div><div class="who" id="who">Toki</div></div>
+    <div style="text-align:right"><div class="label">Best</div><div class="val" id="best">0</div></div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div class="overlay" id="over" hidden>
+      <h2 id="overTitle">Caught!</h2>
+      <p id="overText"></p>
+      <div class="center">
+        <button class="btn" id="againBtn">Play again</button>
+        <button class="btn alt" id="pickBtn">Pick a pig</button>
+      </div>
+    </div>
+  </div>
+  <div class="hud">
+    <div><div class="label">Hearts</div><div class="val lives" id="lives">♥♥♥</div></div>
+    <div class="label keyhint" style="align-self:center">Arrows / WASD · P pause</div>
+    <button class="ghostbtn" id="menuBtn">Menu</button>
+  </div>
+  <div class="pad" id="pad">
+    <button class="up" data-d="up" aria-label="Up">▲</button>
+    <button class="left" data-d="left" aria-label="Left">◀</button>
+    <button class="down" data-d="down" aria-label="Down">▼</button>
+    <button class="right" data-d="right" aria-label="Right">▶</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- pigs (skins based on the four real pigs) ----------
+  const WHITE = '#fbf6ee';
+  const SKINS = [
+    { name: 'Toki', desc: 'Tricolor: white blaze, ginger shoulders, chocolate rump',
+      base: '#c96d2c', rear: '#3d271b', eyePatch: '#3d271b', blaze: WHITE, chin: WHITE, ear: '#e0a08a' },
+    { name: 'Mochi', desc: 'All-black fluffball',
+      base: '#1e1b20', fluffy: true, ear: '#3c3438', dark: true, nose: '#5a4048' },
+    { name: 'Poke', desc: 'Ginger body, white band, black head',
+      base: '#d27b2f', band: WHITE, head: '#221915', chin: WHITE, ear: '#7b5236', dark: true },
+    { name: 'Miso Soup', desc: 'Black with a white band and a ginger nose',
+      base: '#201b1c', band: WHITE, cheek: '#c9752f', ear: '#3a2f2c', dark: true }
+  ];
+  const INK = '#3b2a1a';
+
+  let names = SKINS.map(s => s.name), chosen = 0, best = 0;
+  try {
+    const saved = JSON.parse(localStorage.getItem('pp-names2') || 'null');
+    if (Array.isArray(saved) && saved.length === 4) names = saved.map((n, i) => (typeof n === 'string' && n.trim()) ? n : SKINS[i].name);
+    chosen = Math.min(3, Math.max(0, parseInt(localStorage.getItem('pp-pig') || '0', 10) || 0));
+    best = parseInt(localStorage.getItem('pp-best') || '0', 10) || 0;
+  } catch (e) {}
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+
+  function ell(c, x, y, rx, ry, rot = 0) { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); }
+
+  // Side-view pig, origin at body centre, facing right. ~72 x 46 units.
+  function drawPig(c, skin, o = {}) {
+    const chew = o.chew || 0;
+    c.lineJoin = 'round';
+    c.fillStyle = '#f0b3a6';
+    for (const fx of [-20, 18]) { ell(c, fx, 19, 6, 3.5); c.fill(); c.lineWidth = 1.5; c.strokeStyle = INK; c.stroke(); }
+    const body = new Path2D(); body.ellipse(0, 0, 36, 22, 0, 0, Math.PI * 2);
+    if (skin.fluffy) {
+      const fur = new Path2D();
+      for (let i = 0; i <= 44; i++) {
+        const a = i / 44 * Math.PI * 2, k = i % 2 ? 1.0 : 1.12;
+        const px = Math.cos(a) * 36 * k, py = Math.sin(a) * 22 * k;
+        i ? fur.lineTo(px, py) : fur.moveTo(px, py);
+      }
+      fur.closePath();
+      c.fillStyle = skin.base; c.fill(fur); c.lineWidth = 2.2; c.strokeStyle = INK; c.stroke(fur);
+    }
+    c.fillStyle = skin.base; c.fill(body);
+    c.save(); c.clip(body);
+    if (skin.rear) { c.fillStyle = skin.rear; ell(c, -26, 0, 26, 28); c.fill(); }
+    if (skin.band) { c.fillStyle = skin.band; c.fillRect(-3, -30, 15, 60); }
+    if (skin.head) { c.fillStyle = skin.head; ell(c, 27, -2, 17, 26); c.fill(); }
+    if (skin.cheek) { c.fillStyle = skin.cheek; ell(c, 31, 4, 10, 9); c.fill(); }
+    if (skin.eyePatch) { c.fillStyle = skin.eyePatch; ell(c, 23, -6, 9, 9.5); c.fill(); }
+    if (skin.blaze) { c.fillStyle = skin.blaze; ell(c, 29, -12, 13, 4.5, 0.55); c.fill(); }
+    if (skin.chin) { c.fillStyle = skin.chin; ell(c, 33, 9, 7.5, 6.5); c.fill(); }
+    c.restore();
+    if (!skin.fluffy) { c.lineWidth = 2.5; c.strokeStyle = INK; c.stroke(body); }
+    c.fillStyle = skin.ear; ell(c, 17, -18, 7, 5, -0.5); c.fill(); c.lineWidth = 2; c.strokeStyle = INK; c.stroke();
+    if (o.sad) {
+      c.beginPath(); c.moveTo(21, -10); c.lineTo(28, -4); c.moveTo(21, -4); c.lineTo(28, -10);
+      c.lineWidth = 2; c.strokeStyle = skin.dark ? '#fff' : INK; c.stroke();
+    } else {
+      c.fillStyle = '#0b0809'; ell(c, 24.5, -7, 3.6, 3.6); c.fill();
+      if (skin.dark) { c.lineWidth = 1; c.strokeStyle = '#6b5a5f'; c.stroke(); }
+      c.fillStyle = '#fff'; ell(c, 25.8, -8.3, 1.3, 1.3); c.fill();
+    }
+    c.fillStyle = skin.nose || '#e07a7a'; ell(c, 35.5, 1, 2.8, 2.2); c.fill();
+    c.beginPath(); c.moveTo(33.5, 4.5); c.quadraticCurveTo(31.5, 8 + chew, 28.5, 7);
+    c.lineWidth = 1.5; c.strokeStyle = skin.dark ? '#9a8a8f' : INK; c.stroke();
+    c.beginPath(); c.moveTo(33, 0); c.lineTo(45, -3); c.moveTo(33, 2); c.lineTo(45, 4);
+    c.lineWidth = 1; c.strokeStyle = skin.dark ? '#cfc6c8' : INK; c.stroke();
+    if (!skin.dark) { c.fillStyle = 'rgba(240,130,130,.4)'; ell(c, 22, 4, 5, 3); c.fill(); }
+  }
+
+  function drawPoop(c, x, y, a, s = 1) {
+    c.save(); c.translate(x, y); c.rotate(a); c.scale(s, s);
+    c.fillStyle = '#4a3020'; ell(c, 0, 0, 3, 1.7); c.fill();
+    c.fillStyle = 'rgba(255,255,255,.35)'; ell(c, -0.8, -0.6, 1, .45); c.fill();
+    c.restore();
+  }
+  function drawHay(c, x, y, s, pulse) {
+    c.save(); c.translate(x, y); c.scale(s * pulse, s * pulse);
+    c.lineCap = 'round';
+    const blades = [[-5, -1], [-3, -3], [0, -4], [3, -3], [5, -1]];
+    for (const [bx, tilt] of blades) { c.beginPath(); c.moveTo(bx * .4, 5); c.quadraticCurveTo(bx, 0, bx + tilt * .3, -6); c.lineWidth = 2.2; c.strokeStyle = '#7fae3e'; c.stroke(); }
+    for (const [bx] of blades) { c.beginPath(); c.moveTo(bx * .3, 5); c.quadraticCurveTo(bx * .8, 1, bx * 1.1, -4); c.lineWidth = 1.2; c.strokeStyle = '#d7e68a'; c.stroke(); }
+    c.fillStyle = '#c9775a'; c.fillRect(-4, 0, 8, 2.2);
+    c.restore();
+  }
+  const VAC = ['#8f86d9', '#4fb7a3', '#ef7f6a'];
+  function drawVac(c, x, y, r, color, dir, mode, scared, flash) {
+    c.save(); c.translate(x, y);
+    if (mode !== 'eaten') {
+      c.fillStyle = scared ? (flash ? '#ffffff' : '#9dbdf5') : color;
+      ell(c, 0, 0, r, r); c.fill(); c.lineWidth = 1.8; c.strokeStyle = INK; c.stroke();
+      c.fillStyle = 'rgba(0,0,0,.18)'; ell(c, 0, 0, r * .62, r * .62); c.fill();
+      c.fillStyle = scared ? '#5d7fc9' : '#2a2a2a';
+      c.beginPath(); c.arc(0, 0, r, Math.atan2(dir.y, dir.x) - .9, Math.atan2(dir.y, dir.x) + .9); c.lineWidth = 2.6; c.strokeStyle = c.fillStyle; c.stroke();
+    }
+    // eyes
+    const ex = dir.x * 2, ey = dir.y * 2;
+    for (const s of [-1, 1]) {
+      const ox = -dir.y * 3 * s + ex, oy = dir.x * 3 * s + ey - 1;
+      c.fillStyle = '#fff'; ell(c, ox, oy, 2.4, 2.4); c.fill();
+      c.fillStyle = scared ? '#5d7fc9' : INK; ell(c, ox + dir.x, oy + dir.y, 1.2, 1.2); c.fill();
+    }
+    if (scared && mode !== 'eaten') {
+      c.beginPath(); c.moveTo(-4, 4); c.lineTo(-2, 3); c.lineTo(0, 4); c.lineTo(2, 3); c.lineTo(4, 4);
+      c.lineWidth = 1; c.strokeStyle = '#3c5aa8'; c.stroke();
+    }
+    c.restore();
+  }
+
+  function hiDPI(cv, w, h) {
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); return c;
+  }
+
+  // ---------- menu ----------
+  const $ = id => document.getElementById(id);
+  const cardsEl = $('cards');
+  SKINS.forEach((skin, i) => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.setAttribute('role', 'radio'); card.tabIndex = 0;
+    const cv = document.createElement('canvas');
+    const c = hiDPI(cv, 150, 100);
+    c.translate(72, 52); c.scale(1.45, 1.45); drawPig(c, skin);
+    const inp = document.createElement('input');
+    inp.id = 'pigname' + i; inp.value = names[i]; inp.maxLength = 14; inp.setAttribute('aria-label', 'Name for pig ' + (i + 1));
+    inp.addEventListener('input', () => { names[i] = inp.value.trim() || SKINS[i].name; save('pp-names2', JSON.stringify(names)); });
+    inp.addEventListener('focus', () => select(i));
+    const d = document.createElement('div'); d.className = 'desc'; d.textContent = skin.desc;
+    card.append(cv, inp, d);
+    card.addEventListener('click', () => select(i));
+    card.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === card) { e.preventDefault(); select(i); } });
+    cardsEl.appendChild(card);
+  });
+  function select(i) {
+    chosen = i; save('pp-pig', String(i));
+    [...cardsEl.children].forEach((el, j) => el.setAttribute('aria-checked', j === i ? 'true' : 'false'));
+  }
+  select(chosen);
+  { const c = hiDPI($('r1'), 30, 30); drawPoop(c, 10, 12, .4, 2); drawPoop(c, 20, 19, -.5, 2); }
+  { const c = hiDPI($('r2'), 30, 30); drawHay(c, 15, 16, 1.6, 1); }
+  { const c = hiDPI($('r3'), 30, 30); drawVac(c, 15, 15, 12, VAC[0], { x: 1, y: 0 }, 'chase', false, false); }
+
+  // ---------- maze ----------
+  const MAP = [
+    '###################',
+    '#........#........#',
+    '#o##.###.#.###.##o#',
+    '#.................#',
+    '#.##.#.#####.#.##.#',
+    '#....#...#...#....#',
+    '####.### # ###.####',
+    '####.#       #.####',
+    '####.# ##-## #.####',
+    '    .  #GGG#  .    ',
+    '####.# ##### #.####',
+    '####.#       #.####',
+    '####.# ##### #.####',
+    '#........#........#',
+    '#.##.###.#.###.##.#',
+    '#o.#.....P.....#.o#',
+    '##.#.#.#####.#.#.##',
+    '#....#...#...#....#',
+    '#.######.#.######.#',
+    '#.................#',
+    '###################'
+  ];
+  const COLS = 19, ROWS = 21, T = 18, W = COLS * T, H = ROWS * T;
+  const DIRS = [{ x: -1, y: 0 }, { x: 1, y: 0 }, { x: 0, y: -1 }, { x: 0, y: 1 }];
+  const DNAME = { left: DIRS[0], right: DIRS[1], up: DIRS[2], down: DIRS[3] };
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const canvas = $('c');
+  let ctx = canvas.getContext('2d');
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    if (!r.width) return;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(r.width * dpr); canvas.height = Math.round(r.height * dpr);
+    ctx.setTransform(canvas.width / W, 0, 0, canvas.height / H, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  const fleeceDots = [];
+  for (let i = 0; i < 70; i++) fleeceDots.push({ x: Math.random() * W, y: Math.random() * H, r: 2 + Math.random() * 3, c: ['#f2c8cf', '#fde9c9', '#d9e8f5', '#e8d6f2'][i % 4] });
+
+  const S = { phase: 'menu', score: 0, lives: 3, level: 1, timer: 0, grid: null, pellets: 0, fright: 0, chain: 0, popups: [], time: 0, paused: false };
+
+  function cell(x, y) { if (y < 0 || y >= ROWS) return '#'; x = ((x % COLS) + COLS) % COLS; return S.grid[y][x]; }
+  function open(x, y, e) {
+    const ch = cell(x, y);
+    if (ch === '#') return false;
+    if (ch === '-') return e.kind === 'vac' && (e.mode === 'leaving' || e.mode === 'eaten');
+    if (ch === 'G') return e.kind === 'vac';
+    return true;
+  }
+
+  function newLevel() {
+    S.grid = MAP.map(r => r.split(''));
+    S.pellets = 0;
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const ch = S.grid[y][x];
+      if (ch === '.' || ch === 'o') S.pellets++;
+      if (ch === 'P') S.grid[y][x] = ' ';
+    }
+    resetActors();
+  }
+  function resetActors() {
+    S.player = { kind: 'pig', x: 9, y: 15, tx: 9, ty: 15, t: 0, moving: false, dir: { x: -1, y: 0 }, next: { x: -1, y: 0 }, face: -1, speed: 6.2, chew: 0 };
+    const k = Math.max(0.35, 1 - (S.level - 1) * 0.15);
+    S.vacs = [0, 1, 2].map(i => ({ kind: 'vac', id: i, x: 8 + i, y: 9, tx: 8 + i, ty: 9, t: 0, moving: false, dir: { x: 0, y: -1 }, mode: 'pen', release: [0.5, 3.5, 6.5][i] * k, scared: false, speed: 4 }));
+    S.fright = 0; S.phase = 'ready'; S.timer = 1.6;
+  }
+
+  function startMove(e, d) { e.dir = d; e.tx = e.x + d.x; e.ty = e.y + d.y; e.t = 0; e.moving = true; }
+  function reverse(e) {
+    if (!e.moving) return;
+    const ox = e.x, oy = e.y;
+    e.x = e.tx; e.y = e.ty; e.tx = ox; e.ty = oy; e.t = 1 - e.t;
+    e.dir = { x: -e.dir.x, y: -e.dir.y };
+  }
+  function step(e, dt, choose, arrive) {
+    if (!e.moving) { const d = choose(e); if (!d) return; startMove(e, d); }
+    e.t += e.speed * dt;
+    while (e.t >= 1) {
+      e.t -= 1;
+      e.x = ((e.tx % COLS) + COLS) % COLS; e.y = e.ty;
+      if (arrive) arrive(e);
+      const d = choose(e);
+      if (d) { e.dir = d; e.tx = e.x + d.x; e.ty = e.y + d.y; }
+      else { e.moving = false; e.t = 0; e.tx = e.x; e.ty = e.y; break; }
+    }
+  }
+  function pos(e) { return { x: (e.x + (e.tx - e.x) * e.t) * T + T / 2, y: (e.y + (e.ty - e.y) * e.t) * T + T / 2 }; }
+
+  function pigDir(p) {
+    if (open(p.x + p.next.x, p.y + p.next.y, p)) return p.next;
+    if (open(p.x + p.dir.x, p.y + p.dir.y, p)) return p.dir;
+    return null;
+  }
+  function pigArrive(p) {
+    const ch = S.grid[p.y][p.x];
+    if (ch === '.') { S.grid[p.y][p.x] = ' '; S.pellets--; S.score += 10; p.chew = .25; hud(); }
+    else if (ch === 'o') {
+      S.grid[p.y][p.x] = ' '; S.pellets--; S.score += 50; p.chew = .4;
+      S.fright = Math.max(2.5, 7 - (S.level - 1) * 0.7); S.chain = 0;
+      for (const v of S.vacs) if (v.mode === 'chase') { v.scared = true; reverse(v); }
+      popup(pos(p).x, pos(p).y - 12, 'Zoomies!', '#5f8f2e');
+      hud();
+    }
+  }
+
+  function bfs(e, tx, ty) {
+    const key = (x, y) => y * COLS + x;
+    const prev = new Map(); prev.set(key(e.x, e.y), null);
+    const q = [[e.x, e.y]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      if (x === tx && y === ty) break;
+      for (const d of DIRS) {
+        const nx = ((x + d.x) + COLS) % COLS, ny = y + d.y;
+        if (!open(nx, ny, e)) continue;
+        const k = key(nx, ny); if (prev.has(k)) continue;
+        prev.set(k, { x, y, d }); q.push([nx, ny]);
+      }
+    }
+    let s = prev.get(key(tx, ty)); if (!s) return null;
+    let d = null;
+    while (s) { d = s.d; s = prev.get(key(s.x, s.y)); }
+    return d;
+  }
+  function vacTarget(v) {
+    const p = S.player;
+    if (v.id === 0) return { x: p.x, y: p.y };
+    if (v.id === 1) return { x: p.x + p.dir.x * 4, y: p.y + p.dir.y * 4 };
+    return Math.hypot(v.x - p.x, v.y - p.y) > 7 ? { x: p.x, y: p.y } : { x: 1, y: 19 };
+  }
+  function vacDir(v) {
+    if (v.mode === 'eaten') { if (v.x === 9 && v.y === 9) v.mode = 'leaving'; else return bfs(v, 9, 9); }
+    if (v.mode === 'leaving') { if (v.x === 9 && v.y === 7) v.mode = 'chase'; else return bfs(v, 9, 7); }
+    const back = d => d.x === -v.dir.x && d.y === -v.dir.y;
+    let opts = DIRS.filter(d => open(v.x + d.x, v.y + d.y, v) && !back(d));
+    if (!opts.length) opts = DIRS.filter(d => open(v.x + d.x, v.y + d.y, v));
+    if (!opts.length) return null;
+    if (v.scared || Math.random() < 0.1) return opts[Math.floor(Math.random() * opts.length)];
+    const t = vacTarget(v);
+    let bestD = null, bd = Infinity;
+    for (const d of opts) { const dd = (v.x + d.x - t.x) ** 2 + (v.y + d.y - t.y) ** 2; if (dd < bd) { bd = dd; bestD = d; } }
+    return bestD;
+  }
+
+  function popup(x, y, text, color) { S.popups.push({ x, y, text, color, life: 1 }); }
+
+  function update(dt) {
+    S.time += dt;
+    for (let i = S.popups.length - 1; i >= 0; i--) { const q = S.popups[i]; q.y -= 22 * dt; q.life -= dt; if (q.life <= 0) S.popups.splice(i, 1); }
+    if (S.phase === 'ready') { S.timer -= dt; if (S.timer <= 0) S.phase = 'play'; return; }
+    if (S.phase === 'dying') {
+      S.timer -= dt;
+      if (S.timer <= 0) { S.lives--; hud(); if (S.lives <= 0) return gameOver(); resetActors(); }
+      return;
+    }
+    if (S.phase === 'clear') { S.timer -= dt; if (S.timer <= 0) { S.level++; newLevel(); hud(); } return; }
+    if (S.phase !== 'play') return;
+
+    const p = S.player;
+    p.chew = Math.max(0, p.chew - dt);
+    p.speed = S.fright > 0 ? 7 : 6.2;
+    step(p, dt, pigDir, pigArrive);
+    if (p.dir.x) p.face = p.dir.x;
+
+    if (S.fright > 0) { S.fright -= dt; if (S.fright <= 0) S.vacs.forEach(v => v.scared = false); }
+
+    for (const v of S.vacs) {
+      if (v.mode === 'pen') { v.release -= dt; if (v.release > 0) continue; v.mode = 'leaving'; }
+      v.speed = v.mode === 'eaten' ? 11 : v.scared ? 3.5 : v.mode === 'leaving' ? 4 : Math.min(4.7 + S.level * 0.4, 6.8);
+      step(v, dt, vacDir, null);
+    }
+
+    const pp = pos(p);
+    for (const v of S.vacs) {
+      if (v.mode === 'pen' || v.mode === 'eaten') continue;
+      const vp = pos(v);
+      if (Math.hypot(pp.x - vp.x, pp.y - vp.y) < T * 0.7) {
+        if (v.scared) {
+          v.scared = false; v.mode = 'eaten'; S.chain++;
+          const pts = 200 * 2 ** (S.chain - 1); S.score += pts;
+          popup(vp.x, vp.y - 8, 'Bonk! +' + pts, '#3c5aa8'); hud();
+        } else { S.phase = 'dying'; S.timer = 1.5; popup(pp.x, pp.y - 14, 'Wheek!', '#d9455a'); return; }
+      }
+    }
+    if (S.pellets <= 0) { S.phase = 'clear'; S.timer = 2.2; S.score += 500; popup(W / 2, H / 2 + 26, '+500', '#5f8f2e'); hud(); }
+  }
+
+  // ---------- drawing ----------
+  function isWall(x, y) { if (y < 0 || y >= ROWS || x < 0 || x >= COLS) return true; return MAP[y][x] === '#'; }
+  function draw() {
+    const c = ctx;
+    c.fillStyle = '#f7dfe2'; c.fillRect(0, 0, W, H);
+    for (const d of fleeceDots) { c.fillStyle = d.c; c.beginPath(); c.arc(d.x, d.y, d.r, 0, 7); c.fill(); }
+
+    // wooden walls
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      if (MAP[y][x] !== '#') continue;
+      c.fillStyle = '#dcb98a'; c.fillRect(x * T, y * T, T, T);
+      c.fillStyle = 'rgba(167,124,76,.25)'; c.fillRect(x * T, y * T + (x * 7 + y * 3) % 12 + 3, T, 1.2);
+    }
+    c.strokeStyle = '#a77c4c'; c.lineWidth = 2; c.lineCap = 'round';
+    c.beginPath();
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      if (MAP[y][x] !== '#') continue;
+      const X = x * T, Y = y * T;
+      if (!isWall(x, y - 1)) { c.moveTo(X, Y + 1); c.lineTo(X + T, Y + 1); }
+      if (!isWall(x, y + 1)) { c.moveTo(X, Y + T - 1); c.lineTo(X + T, Y + T - 1); }
+      if (!isWall(x - 1, y)) { c.moveTo(X + 1, Y); c.lineTo(X + 1, Y + T); }
+      if (!isWall(x + 1, y)) { c.moveTo(X + T - 1, Y); c.lineTo(X + T - 1, Y + T); }
+    }
+    c.stroke();
+    // pen door
+    c.fillStyle = '#f39cb0'; c.fillRect(9 * T, 8 * T + 7, T, 4);
+
+    // pellets
+    const pulse = reduceMotion ? 1 : 1 + Math.sin(S.time * 6) * 0.12;
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+      const ch = S.grid[y][x];
+      if (ch === '.') drawPoop(c, x * T + T / 2, y * T + T / 2, ((x * 7 + y * 13) % 6) * .5, 1);
+      else if (ch === 'o') drawHay(c, x * T + T / 2, y * T + T / 2, .95, pulse);
+    }
+
+    // vacuums
+    const flash = S.fright > 0 && S.fright < 2 && Math.floor(S.time * 8) % 2 === 0;
+    for (const v of S.vacs) {
+      const vp = pos(v);
+      const bob = v.mode === 'pen' && !reduceMotion ? Math.sin(S.time * 5 + v.id * 2) * 2 : 0;
+      if (S.phase === 'dying' && S.timer < 1.1) continue;
+      drawVac(c, vp.x, vp.y + bob, 8, VAC[v.id], v.moving ? v.dir : { x: 0, y: 1 }, v.mode, v.scared, flash);
+    }
+
+    // pig
+    const p = S.player, pp = pos(p), skin = SKINS[chosen];
+    c.save();
+    let hop = 0;
+    if (S.fright > 0 && S.phase === 'play' && !reduceMotion) hop = Math.abs(Math.sin(S.time * 14)) * 3;
+    c.translate(pp.x, pp.y + 1 - hop);
+    let sc = 0.34;
+    if (S.phase === 'dying') {
+      const k = Math.max(0, S.timer / 1.5);
+      if (!reduceMotion) c.rotate((1 - k) * Math.PI * 3);
+      sc *= 0.4 + 0.6 * k;
+    }
+    c.scale(p.face * sc, sc);
+    drawPig(c, skin, { chew: p.chew > 0 ? Math.sin(p.chew * 60) * 2 : 0, sad: S.phase === 'dying' });
+    c.restore();
+
+    // popups
+    c.textAlign = 'center'; c.font = '14px Chewy, "Comic Sans MS", sans-serif';
+    for (const q of S.popups) {
+      c.globalAlpha = Math.min(1, q.life / .4);
+      c.lineWidth = 3.5; c.strokeStyle = '#fff'; c.strokeText(q.text, q.x, q.y);
+      c.fillStyle = q.color; c.fillText(q.text, q.x, q.y);
+    }
+    c.globalAlpha = 1;
+
+    const banner = S.paused ? 'Paused' : S.phase === 'ready' ? 'Ready, ' + names[chosen] + '?' : S.phase === 'clear' ? 'Cage clean!' : '';
+    if (banner) {
+      c.font = '22px Chewy, "Comic Sans MS", sans-serif';
+      c.lineWidth = 5; c.strokeStyle = '#fff8f4'; c.strokeText(banner, W / 2, 13 * T - 4);
+      c.fillStyle = INK; c.fillText(banner, W / 2, 13 * T - 4);
+    }
+  }
+
+  // ---------- flow ----------
+  function hud() {
+    $('score').textContent = S.score;
+    $('level').textContent = S.level;
+    $('lives').textContent = '♥'.repeat(Math.max(0, S.lives)) || '–';
+    $('best').textContent = Math.max(best, S.score);
+    $('who').textContent = names[chosen];
+  }
+  function startGame() {
+    $('menu').hidden = true; $('game').hidden = false; $('over').hidden = true;
+    S.score = 0; S.lives = 3; S.level = 1; S.paused = false; S.popups = [];
+    resize(); newLevel(); hud();
+  }
+  function gameOver() {
+    S.phase = 'over';
+    const isBest = S.score > best;
+    if (isBest) { best = S.score; save('pp-best', String(best)); }
+    $('overTitle').textContent = isBest ? 'New best!' : 'Caught!';
+    $('overText').textContent = `${names[chosen]} scored ${S.score} points and reached cage ${S.level}.` + (isBest ? '' : ` Best is ${best}.`);
+    $('over').hidden = false; hud();
+    $('againBtn').focus();
+  }
+  function toMenu() { S.phase = 'menu'; $('game').hidden = true; $('menu').hidden = false; }
+
+  $('playBtn').addEventListener('click', startGame);
+  $('againBtn').addEventListener('click', startGame);
+  $('pickBtn').addEventListener('click', toMenu);
+  $('menuBtn').addEventListener('click', toMenu);
+
+  function steer(d) {
+    const p = S.player; if (!p || S.phase === 'menu' || S.phase === 'over') return;
+    p.next = d;
+    if (p.moving && d.x === -p.dir.x && d.y === -p.dir.y) reverse(p);
+  }
+  const KEYS = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', a: 'left', d: 'right', w: 'up', s: 'down', A: 'left', D: 'right', W: 'up', S: 'down' };
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    if (KEYS[e.key] && !$('game').hidden) { e.preventDefault(); steer(DNAME[KEYS[e.key]]); }
+    if ((e.key === 'p' || e.key === 'P') && (S.phase === 'play' || S.phase === 'ready')) S.paused = !S.paused;
+  });
+  let sw = null;
+  canvas.addEventListener('pointerdown', e => { sw = { x: e.clientX, y: e.clientY }; });
+  canvas.addEventListener('pointermove', e => {
+    if (!sw) return;
+    const dx = e.clientX - sw.x, dy = e.clientY - sw.y;
+    if (Math.hypot(dx, dy) > 18) { steer(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? DNAME.right : DNAME.left) : (dy > 0 ? DNAME.down : DNAME.up)); sw = { x: e.clientX, y: e.clientY }; }
+  });
+  window.addEventListener('pointerup', () => { sw = null; });
+  $('pad').querySelectorAll('button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); steer(DNAME[b.dataset.d]); }));
+  document.addEventListener('visibilitychange', () => { if (document.hidden && S.phase === 'play') S.paused = true; });
+
+  let last = 0;
+  function loop(t) {
+    const dt = Math.min(0.05, (t - last) / 1000 || 0); last = t;
+    if (S.phase !== 'menu') {
+      if (!S.paused && S.phase !== 'over') update(dt);
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
