@@ -102,6 +102,7 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
       <canvas id="r1" width="60" height="60"></canvas><span><b>Poop pellets</b> are 10 points. Clear them all to finish the cage.</span>
       <canvas id="r2" width="60" height="60"></canvas><span><b>Hay bundles</b> give your pig the zoomies. Vacuums get scared and you can bonk them for big points.</span>
       <canvas id="r3" width="60" height="60"></canvas><span><b>Robot vacuums</b> chase you. Touching one costs a heart.</span>
+      <canvas id="r4" width="60" height="60"></canvas><span><b>Lone Star coins</b> only show up for Masaki. Grab one for a 5-second Capital Bonus: every poop pellet is worth triple.</span>
     </div>
     <p class="small">Arrow keys or WASD to move · swipe or use the pad on phones · P to pause</p>
   </div>
@@ -244,6 +245,18 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
     c.fillStyle = '#c9775a'; c.fillRect(-4, 0, 8, 2.2);
     c.restore();
   }
+  function star(c, r) {
+    c.beginPath();
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, k = i % 2 ? r * .45 : r; c.lineTo(Math.cos(a) * k, Math.sin(a) * k); }
+    c.closePath();
+  }
+  function drawCoin(c, x, y, s, spin) {
+    c.save(); c.translate(x, y); c.scale(s * Math.max(.15, Math.abs(Math.cos(spin))), s);
+    c.fillStyle = '#e9b93b'; ell(c, 0, 0, 7.5, 7.5); c.fill(); c.lineWidth = 1.6; c.strokeStyle = '#7a5a12'; c.stroke();
+    c.fillStyle = '#1f2f5c'; ell(c, 0, 0, 5.6, 5.6); c.fill();
+    c.fillStyle = '#fff'; star(c, 4); c.fill();
+    c.restore();
+  }
   const VAC = ['#8f86d9', '#4fb7a3', '#ef7f6a'];
   function drawVac(c, x, y, r, color, dir, mode, scared, flash) {
     c.save(); c.translate(x, y);
@@ -314,6 +327,7 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
   select(chosen);
   { const c = hiDPI($('r1'), 30, 30); drawPoop(c, 10, 12, .4, 2); drawPoop(c, 20, 19, -.5, 2); }
   { const c = hiDPI($('r2'), 30, 30); drawHay(c, 15, 16, 1.6, 1); }
+  { const c = hiDPI($('r4'), 30, 30); drawCoin(c, 15, 15, 1.7, 0); }
   { const c = hiDPI($('r3'), 30, 30); drawVac(c, 15, 15, 12, VAC[0], { x: 1, y: 0 }, 'chase', false, false); }
 
   // ---------- maze ----------
@@ -385,6 +399,7 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
     const k = Math.max(0.35, 1 - (S.level - 1) * 0.15);
     S.vacs = [0, 1, 2].map(i => ({ kind: 'vac', id: i, x: 8 + i, y: 9, tx: 8 + i, ty: 9, t: 0, moving: false, dir: { x: 0, y: -1 }, mode: 'pen', release: [0.5, 3.5, 6.5][i] * k, scared: false, speed: 4 }));
     S.fright = 0; S.phase = 'ready'; S.timer = 1.6;
+    S.coin = null; S.coinTimer = 6; S.bonus = 0;
   }
 
   function startMove(e, d) { e.dir = d; e.tx = e.x + d.x; e.ty = e.y + d.y; e.t = 0; e.moving = true; }
@@ -415,7 +430,15 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
   }
   function pigArrive(p) {
     const ch = S.grid[p.y][p.x];
-    if (ch === '.') { S.grid[p.y][p.x] = ' '; S.pellets--; S.score += 10; p.chew = .25; hud(); }
+    if (S.coin && S.coin.x === p.x && S.coin.y === p.y) {
+      S.coin = null; S.bonus = 5; S.score += 100; p.chew = .4;
+      popup(pos(p).x, pos(p).y - 12, 'Capital Bonus! 💰', '#1f2f5c'); hud();
+    }
+    if (ch === '.') {
+      S.grid[p.y][p.x] = ' '; S.pellets--; p.chew = .25;
+      if (S.bonus > 0) { S.score += 30; popup(pos(p).x, pos(p).y - 8, '+30', '#b8860b'); } else S.score += 10;
+      hud();
+    }
     else if (ch === 'o') {
       S.grid[p.y][p.x] = ' '; S.pellets--; S.score += 50; p.chew = .4;
       S.fright = Math.max(2.5, 7 - (S.level - 1) * 0.7); S.chain = 0;
@@ -484,6 +507,18 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
     step(p, dt, pigDir, pigArrive);
     if (p.dir.x) p.face = p.dir.x;
 
+    if (SKINS[chosen].suit) {
+      if (S.bonus > 0) S.bonus = Math.max(0, S.bonus - dt);
+      if (S.coin) { S.coin.life -= dt; if (S.coin.life <= 0) S.coin = null; }
+      else if (S.bonus <= 0 && (S.coinTimer -= dt) <= 0) {
+        const spots = [];
+        for (let y = 1; y < ROWS - 1; y++) for (let x = 1; x < COLS - 1; x++)
+          if ((S.grid[y][x] === ' ' || S.grid[y][x] === '.') && !(y >= 6 && y <= 12 && x >= 6 && x <= 12) && Math.abs(x - p.x) + Math.abs(y - p.y) > 5) spots.push({ x, y });
+        if (spots.length) S.coin = { ...spots[Math.floor(Math.random() * spots.length)], life: 9 };
+        S.coinTimer = 14;
+      }
+    }
+
     if (S.fright > 0) { S.fright -= dt; if (S.fright <= 0) S.vacs.forEach(v => v.scared = false); }
 
     for (const v of S.vacs) {
@@ -540,6 +575,19 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
       const ch = S.grid[y][x];
       if (ch === '.') drawPoop(c, x * T + T / 2, y * T + T / 2, ((x * 7 + y * 13) % 6) * .5, 1);
       else if (ch === 'o') drawHay(c, x * T + T / 2, y * T + T / 2, .95, pulse);
+    }
+    if (S.coin) {
+      const blink = S.coin.life < 2.5 && Math.floor(S.time * 6) % 2 === 0;
+      if (!blink) drawCoin(c, S.coin.x * T + T / 2, S.coin.y * T + T / 2, 1, reduceMotion ? 0 : S.time * 3);
+    }
+    if (S.bonus > 0) {
+      c.fillStyle = 'rgba(233,185,59,.13)'; c.fillRect(0, 0, W, H);
+      const bw = 150, bx = W / 2 - bw / 2, by = 3;
+      c.fillStyle = '#1f2f5c'; c.fillRect(bx, by, bw, 12);
+      c.fillStyle = '#e9b93b'; c.fillRect(bx + 2, by + 2, (bw - 4) * S.bonus / 5, 8);
+      c.font = '11px Chewy, "Comic Sans MS", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillStyle = '#fff'; c.fillText('★ CAPITAL BONUS ×3 ★', W / 2, by + 6.5);
+      c.textBaseline = 'alphabetic';
     }
 
     // vacuums
