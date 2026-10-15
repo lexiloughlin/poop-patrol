@@ -151,7 +151,7 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
       base: '#d27b2f', band: WHITE, head: '#221915', chin: WHITE, ear: '#7b5236', dark: true },
     { name: 'Miso Soup', desc: 'Black with a white band and a ginger nose',
       base: '#201b1c', band: WHITE, cheek: '#c9752f', ear: '#3a2f2c', dark: true },
-    { name: 'Masaki', desc: 'Investment banker. Wears the suit to the cage.', unlock: 1000,
+    { name: 'Masaki', desc: 'Investment banker. Wears the suit to the cage.', unlock: 1000, unlockMsg: 'Masaki made partner! 💼',
       base: '#2b3552', head: '#e6b866', suit: true, ear: '#d48f72', nose: '#d97b7b', glasses: true }
   ];
   const SILHOUETTE = { base: '#bfaea6', ear: '#a8968e', nose: '#a8968e' };
@@ -600,10 +600,10 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
   function gameOver() {
     S.phase = 'over';
     const isBest = S.score > best;
-    const newlyUnlocked = SKINS.filter((s, i) => isLocked(i) && S.score >= s.unlock).map(s => s.name);
+    const newlyUnlocked = SKINS.filter((s, i) => isLocked(i) && S.score >= s.unlock).map(s => s.unlockMsg || `🎉 You unlocked ${s.name}!`);
     if (isBest) { best = S.score; save('pp-best', String(best)); }
     $('overTitle').textContent = isBest ? 'New best!' : 'Caught!';
-    $('overText').textContent = `${names[chosen]} scored ${S.score} points and reached cage ${S.level}.` + (isBest ? '' : ` Best is ${best}.`) + (newlyUnlocked.length ? ` 🎉 You unlocked ${newlyUnlocked.join(' & ')}!` : '');
+    $('overText').textContent = `${names[chosen]} scored ${S.score} points and reached cage ${S.level}.` + (isBest ? '' : ` Best is ${best}.`) + (newlyUnlocked.length ? ' ' + newlyUnlocked.join(' ') : '');
     $('over').hidden = false; hud();
     $('againBtn').focus();
   }
