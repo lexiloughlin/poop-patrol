@@ -151,8 +151,8 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
       base: '#d27b2f', band: WHITE, head: '#221915', chin: WHITE, ear: '#7b5236', dark: true },
     { name: 'Miso Soup', desc: 'Black with a white band and a ginger nose',
       base: '#201b1c', band: WHITE, cheek: '#c9752f', ear: '#3a2f2c', dark: true },
-    { name: 'Masaki', desc: 'Golden cream, the rarest pig', unlock: 1000,
-      base: '#e6b866', blaze: WHITE, chin: WHITE, ear: '#d48f72', nose: '#d97b7b' }
+    { name: 'Masaki', desc: 'Investment banker. Wears the suit to the cage.', unlock: 1000,
+      base: '#2b3552', head: '#e6b866', suit: true, ear: '#d48f72', nose: '#d97b7b', glasses: true }
   ];
   const SILHOUETTE = { base: '#bfaea6', ear: '#a8968e', nose: '#a8968e' };
   const INK = '#3b2a1a';
@@ -192,6 +192,15 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
     if (skin.rear) { c.fillStyle = skin.rear; ell(c, -26, 0, 26, 28); c.fill(); }
     if (skin.band) { c.fillStyle = skin.band; c.fillRect(-3, -30, 15, 60); }
     if (skin.head) { c.fillStyle = skin.head; ell(c, 27, -2, 17, 26); c.fill(); }
+    if (skin.suit) {
+      // pinstripes
+      c.strokeStyle = 'rgba(255,255,255,.13)'; c.lineWidth = 1;
+      for (let x = -36; x < 12; x += 6) { c.beginPath(); c.moveTo(x, -24); c.lineTo(x, 24); c.stroke(); }
+      // shirt V + lapels + red tie at the collar
+      c.fillStyle = '#fff'; c.beginPath(); c.moveTo(7, -18); c.lineTo(13, 10); c.lineTo(17, -18); c.closePath(); c.fill();
+      c.fillStyle = '#1d2540'; c.beginPath(); c.moveTo(4, -18); c.lineTo(11, 4); c.lineTo(7, -18); c.closePath(); c.fill();
+      c.fillStyle = '#c8343c'; c.beginPath(); c.moveTo(11, -16); c.lineTo(14, -16); c.lineTo(15, 2); c.lineTo(12.5, 6); c.lineTo(10, 2); c.closePath(); c.fill();
+    }
     if (skin.cheek) { c.fillStyle = skin.cheek; ell(c, 31, 4, 10, 9); c.fill(); }
     if (skin.eyePatch) { c.fillStyle = skin.eyePatch; ell(c, 23, -6, 9, 9.5); c.fill(); }
     if (skin.blaze) { c.fillStyle = skin.blaze; ell(c, 29, -12, 13, 4.5, 0.55); c.fill(); }
@@ -206,6 +215,11 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
       c.fillStyle = '#0b0809'; ell(c, 24.5, -7, 3.6, 3.6); c.fill();
       if (skin.dark) { c.lineWidth = 1; c.strokeStyle = '#6b5a5f'; c.stroke(); }
       c.fillStyle = '#fff'; ell(c, 25.8, -8.3, 1.3, 1.3); c.fill();
+    }
+    if (skin.glasses && !o.sad) {
+      c.lineWidth = 1.4; c.strokeStyle = INK;
+      ell(c, 24.5, -7, 5.2, 5.2); c.stroke();
+      c.beginPath(); c.moveTo(19.3, -7); c.lineTo(13, -9); c.stroke();
     }
     c.fillStyle = skin.nose || '#e07a7a'; ell(c, 35.5, 1, 2.8, 2.2); c.fill();
     c.beginPath(); c.moveTo(33.5, 4.5); c.quadraticCurveTo(31.5, 8 + chew, 28.5, 7);
