@@ -50,6 +50,10 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
 .card canvas { width: 100%; max-width: 150px; aspect-ratio: 15 / 10; height: auto; }
 .card input { width: 100%; box-sizing: border-box; font-family: var(--font-display); font-size: 20px; text-align: center; color: var(--ink); background: transparent; border: 0; border-bottom: 2px dashed var(--fleece-deep); padding: 2px 4px; }
 .card input:focus { outline: none; border-bottom-color: var(--ink); }
+.card.locked { cursor: not-allowed; background: #f6efea; border-style: dashed; }
+.card.locked input { color: var(--muted); }
+.card .lock { font-family: var(--font-display); font-size: 16px; color: var(--wood-dark); text-align: center; }
+.cards .card:nth-child(5) { grid-column: 1 / -1; justify-self: center; width: calc(50% - 5px); }
 .card .desc { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.3; }
 .small { font-size: 12px; color: var(--muted); text-align: center; margin: 8px 0 0; }
 .rules { display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; align-items: center; font-size: 14px; }
@@ -146,17 +150,22 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
     { name: 'Poke', desc: 'Ginger body, white band, black head',
       base: '#d27b2f', band: WHITE, head: '#221915', chin: WHITE, ear: '#7b5236', dark: true },
     { name: 'Miso Soup', desc: 'Black with a white band and a ginger nose',
-      base: '#201b1c', band: WHITE, cheek: '#c9752f', ear: '#3a2f2c', dark: true }
+      base: '#201b1c', band: WHITE, cheek: '#c9752f', ear: '#3a2f2c', dark: true },
+    { name: 'Masaki', desc: 'Golden cream, the rarest pig', unlock: 1000,
+      base: '#e6b866', blaze: WHITE, chin: WHITE, ear: '#d48f72', nose: '#d97b7b' }
   ];
+  const SILHOUETTE = { base: '#bfaea6', ear: '#a8968e', nose: '#a8968e' };
   const INK = '#3b2a1a';
 
   let names = SKINS.map(s => s.name), chosen = 0, best = 0;
   try {
     const saved = JSON.parse(localStorage.getItem('pp-names2') || 'null');
-    if (Array.isArray(saved) && saved.length === 4) names = saved.map((n, i) => (typeof n === 'string' && n.trim()) ? n : SKINS[i].name);
-    chosen = Math.min(3, Math.max(0, parseInt(localStorage.getItem('pp-pig') || '0', 10) || 0));
+    if (Array.isArray(saved) && saved.length >= 4) names = SKINS.map((s, i) => saved[i]).map((n, i) => (typeof n === 'string' && n.trim()) ? n : SKINS[i].name);
+    chosen = Math.min(SKINS.length - 1, Math.max(0, parseInt(localStorage.getItem('pp-pig') || '0', 10) || 0));
     best = parseInt(localStorage.getItem('pp-best') || '0', 10) || 0;
   } catch (e) {}
+  const isLocked = i => !!SKINS[i].unlock && best < SKINS[i].unlock;
+  if (isLocked(chosen)) chosen = 0;
   const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
   function ell(c, x, y, rx, ry, rot = 0) { c.beginPath(); c.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); }
@@ -258,19 +267,33 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
     const card = document.createElement('div');
     card.className = 'card'; card.setAttribute('role', 'radio'); card.tabIndex = 0;
     const cv = document.createElement('canvas');
-    const c = hiDPI(cv, 150, 100);
-    c.translate(72, 52); c.scale(1.45, 1.45); drawPig(c, skin);
     const inp = document.createElement('input');
     inp.id = 'pigname' + i; inp.value = names[i]; inp.maxLength = 14; inp.setAttribute('aria-label', 'Name for pig ' + (i + 1));
     inp.addEventListener('input', () => { names[i] = inp.value.trim() || SKINS[i].name; save('pp-names2', JSON.stringify(names)); });
     inp.addEventListener('focus', () => select(i));
     const d = document.createElement('div'); d.className = 'desc'; d.textContent = skin.desc;
-    card.append(cv, inp, d);
+    const lk = document.createElement('div'); lk.className = 'lock';
+    card.append(cv, inp, d, lk);
     card.addEventListener('click', () => select(i));
     card.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target === card) { e.preventDefault(); select(i); } });
     cardsEl.appendChild(card);
   });
+  function refreshCards() {
+    SKINS.forEach((skin, i) => {
+      const card = cardsEl.children[i], cv = card.querySelector('canvas'), locked = isLocked(i);
+      const c = hiDPI(cv, 150, 100);
+      c.translate(72, 52); c.scale(1.45, 1.45); drawPig(c, locked ? SILHOUETTE : skin);
+      if (locked) { c.setTransform(1, 0, 0, 1, 0, 0); c.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1); c.font = '34px Chewy, "Comic Sans MS", sans-serif'; c.textAlign = 'center'; c.fillStyle = '#fff'; c.fillText('?', 70, 66); }
+      card.classList.toggle('locked', locked);
+      card.setAttribute('aria-disabled', locked ? 'true' : 'false');
+      const inp = card.querySelector('input'); inp.disabled = locked; inp.value = locked ? '???' : names[i];
+      card.querySelector('.desc').textContent = locked ? 'A mystery pig!' : skin.desc;
+      card.querySelector('.lock').textContent = locked ? `🔒 Score ${skin.unlock} to unlock (best: ${best})` : '';
+    });
+  }
+  refreshCards();
   function select(i) {
+    if (isLocked(i)) return;
     chosen = i; save('pp-pig', String(i));
     [...cardsEl.children].forEach((el, j) => el.setAttribute('aria-checked', j === i ? 'true' : 'false'));
   }
@@ -563,13 +586,14 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(44px, 
   function gameOver() {
     S.phase = 'over';
     const isBest = S.score > best;
+    const newlyUnlocked = SKINS.filter((s, i) => isLocked(i) && S.score >= s.unlock).map(s => s.name);
     if (isBest) { best = S.score; save('pp-best', String(best)); }
     $('overTitle').textContent = isBest ? 'New best!' : 'Caught!';
-    $('overText').textContent = `${names[chosen]} scored ${S.score} points and reached cage ${S.level}.` + (isBest ? '' : ` Best is ${best}.`);
+    $('overText').textContent = `${names[chosen]} scored ${S.score} points and reached cage ${S.level}.` + (isBest ? '' : ` Best is ${best}.`) + (newlyUnlocked.length ? ` 🎉 You unlocked ${newlyUnlocked.join(' & ')}!` : '');
     $('over').hidden = false; hud();
     $('againBtn').focus();
   }
-  function toMenu() { S.phase = 'menu'; $('game').hidden = true; $('menu').hidden = false; }
+  function toMenu() { refreshCards(); S.phase = 'menu'; $('game').hidden = true; $('menu').hidden = false; }
 
   $('playBtn').addEventListener('click', startGame);
   $('againBtn').addEventListener('click', startGame);
